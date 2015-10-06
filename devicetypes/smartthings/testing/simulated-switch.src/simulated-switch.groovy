@@ -16,24 +16,36 @@ metadata {
     definition (name: "Simulated Switch", namespace: "smartthings/testing", author: "bob") {
 		capability "Switch"
         capability "Relay Switch"
+        capability "Switch Level"
 
 		command "onPhysical"
 		command "offPhysical"
 	}
 
-	tiles {
-		standardTile("switch", "device.switch", width: 2, height: 2, canChangeIcon: true) {
-			state "off", label: '${currentValue}', action: "switch.on", icon: "st.switches.switch.off", backgroundColor: "#ffffff"
-			state "on", label: '${currentValue}', action: "switch.off", icon: "st.switches.switch.on", backgroundColor: "#79b821"
+	tiles(scale: 2) {
+		multiAttributeTile(name:"switch", type: "lighting", width: 6, height: 4, canChangeIcon: true){
+			tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
+				attributeState "on", label:'${name}', action:"switch.off", icon:"st.switches.switch.on", backgroundColor:"#79b821", nextState:"turningOff"
+				attributeState "off", label:'${name}', action:"switch.on", icon:"st.switches.switch.off", backgroundColor:"#ffffff", nextState:"turningOn"
+				attributeState "turningOn", label:'${name}', action:"switch.off", icon:"st.switches.switch.on", backgroundColor:"#79b821", nextState:"turningOff"
+				attributeState "turningOff", label:'${name}', action:"switch.on", icon:"st.switches.switch.off", backgroundColor:"#ffffff", nextState:"turningOn"
+			}
+			tileAttribute ("device.level", key: "SLIDER_CONTROL") {
+				attributeState "level", action:"switch level.setLevel"
+			}
 		}
-		standardTile("on", "device.switch", decoration: "flat") {
-			state "default", label: 'On', action: "onPhysical", backgroundColor: "#ffffff"
+
+		standardTile("indicator", "device.indicatorStatus", height: 2, width: 2, inactiveLabel: false, decoration: "flat") {
+			state "when off", action:"indicator.indicatorWhenOn", icon:"st.indicators.lit-when-off"
+			state "when on", action:"indicator.indicatorNever", icon:"st.indicators.lit-when-on"
+			state "never", action:"indicator.indicatorWhenOff", icon:"st.indicators.never-lit"
 		}
-		standardTile("off", "device.switch", decoration: "flat") {
-			state "default", label: 'Off', action: "offPhysical", backgroundColor: "#ffffff"
+		standardTile("refresh", "device.switch", height: 2, width: 2, inactiveLabel: false, decoration: "flat") {
+			state "default", label:"", action:"refresh.refresh", icon:"st.secondary.refresh"
 		}
-        main "switch"
-		details(["switch","on","off"])
+
+		main(["switch"])
+		details(["switch", "refresh", "indicator"])
 	}
 }
 
@@ -60,6 +72,18 @@ def onPhysical() {
 def offPhysical() {
 	log.debug "$version offPhysical()"
 	sendEvent(name: "switch", value: "off", type: "physical")
+}
+
+def setLevel(value) {
+	log.trace "setLevel($value)"
+
+	if (value == 0) {
+		sendEvent(name: "switch", value: "off")
+	} else if (device.latestValue("switch") == "off") {
+        sendEvent(name: "switch", value: "on")        
+	}
+
+	sendEvent(name: "level", value: value) 
 }
 
 private getVersion() {
